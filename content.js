@@ -1,6 +1,6 @@
 (() => {
   'use strict';
-  const HIGHLIGHT_COLOR = '#808080'; // Заменен красный цвет на серый
+  const HIGHLIGHT_COLOR = '#808080'; // Серый цвет
   // ===== Стили =====
   const style = document.createElement('style');
   style.textContent = `
@@ -18,14 +18,14 @@
       color: ${HIGHLIGHT_COLOR} !important;
       text-decoration: underline !important;
     }
-    /* Рамка */
+    /* Рамка (пунктирная, толщиной 4px) */
     .hh-visited-card {
       position: relative !important;
-      outline: 2px solid ${HIGHLIGHT_COLOR} !important;
+      outline: 4px dashed ${HIGHLIGHT_COLOR} !important; /* Изменено с solid на dashed, толщина увеличена в 2 раза */
       outline-offset: 6px !important;
       border-radius: 6px !important;
     }
-    /* Полупрозрачное затемнение внутри рамки (20% серым) */
+    /* Полупрозрачное затемнение внутри рамки (30% серым) */
     .hh-visited-card::after {
       content: "";
       position: absolute;
@@ -33,7 +33,7 @@
       left: 0;
       right: 0;
       bottom: 0;
-      background-color: rgba(128, 128, 128, 0.2) !important;
+      background-color: rgba(128, 128, 128, 0.3) !important; /* Увеличено с 20% до 30% */
       pointer-events: none;
       z-index: 1;
       border-radius: 6px;
@@ -119,9 +119,9 @@
         n.style.setProperty('text-decoration', 'underline', 'important');
       });
     };
-    paint();
-    requestAnimationFrame(paint);
-    setTimeout(paint, 50);
+    paint();                       
+    requestAnimationFrame(paint);  
+    setTimeout(paint, 50);         
   }
   function markCardAndLink(card, a) {
     if (card && !PROCESSED_CARDS.has(card)) {
