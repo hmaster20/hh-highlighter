@@ -1,51 +1,121 @@
 (() => {
   'use strict';
-  const HIGHLIGHT_COLOR = '#808080'; // Серый цвет
-  // ===== Стили =====
-  const style = document.createElement('style');
-  style.textContent = `
-    /* Ссылка и её потомки */
-    a.hh-visited, .hh-visited a, a.hh-visited:visited, .hh-visited a:visited,
-    a.hh-visited *, .hh-visited a * {
-      color: ${HIGHLIGHT_COLOR} !important;
-      text-decoration: underline !important;
+  
+  // Загружаем настройки из хранилища
+  let settings = {
+    extensionEnabled: true,
+    highlightColor: '#808080',
+    borderStyle: 'dashed',
+    borderWidth: '4',
+    overlayOpacity: '30'
+  };
+  
+  // Загружаем сохраненные настройки
+  chrome.storage.local.get([
+    'extensionEnabled', 
+    'highlightColor', 
+    'borderStyle', 
+    'borderWidth',
+    'overlayOpacity'
+  ], (data) => {
+    settings = {
+      extensionEnabled: data.extensionEnabled !== false, // По умолчанию включено
+      highlightColor: data.highlightColor || '#808080',
+      borderStyle: data.borderStyle || 'dashed',
+      borderWidth: data.borderWidth || '4',
+      overlayOpacity: data.overlayOpacity || '30'
+    };
+    
+    // Применяем стили после загрузки настроек
+    applyStyles();
+  });
+  
+  // Функция для применения стилей
+  function applyStyles() {
+    // Удаляем существующие стили
+    const existingStyle = document.getElementById('hh-highlighter-styles');
+    if (existingStyle) {
+      existingStyle.remove();
     }
-    /* Заголовок вакансии внутри отмеченной карточки (CSS-слой) */
-    .hh-visited-card [data-qa="serp-item__title"],
-    .hh-visited-card [data-qa="serp-item__title"] *,
-    .hh-visited-card [data-qa="serp-item__title-text"],
-    .hh-visited-card [data-qa="serp-item__title-text"] * {
-      color: ${HIGHLIGHT_COLOR} !important;
-      text-decoration: underline !important;
+    
+    // Если расширение отключено, не применяем стили
+    if (!settings.extensionEnabled) {
+      return;
     }
-    /* Рамка (пунктирная, толщиной 4px) */
-    .hh-visited-card {
-      position: relative !important;
-      outline: 4px dashed ${HIGHLIGHT_COLOR} !important; /* Изменено с solid на dashed, толщина увеличена в 2 раза */
-      outline-offset: 6px !important;
-      border-radius: 6px !important;
+    
+    // Создаем новые стили
+    const style = document.createElement('style');
+    style.id = 'hh-highlighter-styles';
+    style.textContent = `
+      /* Ссылка и её потомки */
+      a.hh-visited, .hh-visited a, a.hh-visited:visited, .hh-visited a:visited,
+      a.hh-visited *, .hh-visited a * {
+        color: ${settings.highlightColor} !important;
+        text-decoration: underline !important;
+      }
+      /* Заголовок вакансии внутри отмеченной карточки (CSS-слой) */
+      .hh-visited-card [data-qa="serp-item__title"],
+      .hh-visited-card [data-qa="serp-item__title"] *,
+      .hh-visited-card [data-qa="serp-item__title-text"],
+      .hh-visited-card [data-qa="serp-item__title-text"] * {
+        color: ${settings.highlightColor} !important;
+        text-decoration: underline !important;
+      }
+      /* Рамка */
+      .hh-visited-card {
+        position: relative !important;
+        outline: ${settings.borderWidth}px ${settings.borderStyle} ${settings.highlightColor} !important;
+        outline-offset: 6px !important;
+        border-radius: 6px !important;
+      }
+      /* Полупрозрачное затемнение внутри рамки */
+      .hh-visited-card::after {
+        content: "";
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background-color: rgba(128, 128, 128, ${settings.overlayOpacity / 100}) !important;
+        pointer-events: none;
+        z-index: 1;
+        border-radius: 6px;
+      }
+      /* Поднимаем содержимое над затемнением */
+      .hh-visited-card > * {
+        position: relative !important;
+        z-index: 2 !important;
+      }
+    `;
+    document.documentElement.appendChild(style);
+  }
+  
+  // Обработка сообщений от popup
+  chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+    if (message.action === 'updateStyles') {
+      settings = {
+        extensionEnabled: message.settings.extensionEnabled,
+        highlightColor: message.settings.highlightColor,
+        borderStyle: message.settings.borderStyle,
+        borderWidth: message.settings.borderWidth,
+        overlayOpacity: message.settings.overlayOpacity
+      };
+      
+      // Сохраняем настройки локально
+      chrome.storage.local.set({
+        extensionEnabled: settings.extensionEnabled,
+        highlightColor: settings.highlightColor,
+        borderStyle: settings.borderStyle,
+        borderWidth: settings.borderWidth,
+        overlayOpacity: settings.overlayOpacity
+      });
+      
+      // Применяем новые стили
+      applyStyles();
     }
-    /* Полупрозрачное затемнение внутри рамки (30% серым) */
-    .hh-visited-card::after {
-      content: "";
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      bottom: 0;
-      background-color: rgba(128, 128, 128, 0.3) !important; /* Увеличено с 20% до 30% */
-      pointer-events: none;
-      z-index: 1;
-      border-radius: 6px;
-    }
-    /* Поднимаем содержимое над затемнением */
-    .hh-visited-card > * {
-      position: relative !important;
-      z-index: 2 !important;
-    }
-  `;
-  document.documentElement.appendChild(style);
-  // ===== Утилиты =====
+  });
+  
+  // ===== Основной функционал расширения =====
   const LINK_SELECTORS = [
     'a[data-qa="serp-item__title"]',
     'a[href*="/vacancy/"]',
@@ -54,6 +124,7 @@
   ];
   const PROCESSED_LINKS = new WeakSet();
   const PROCESSED_CARDS = new WeakSet();
+  
   function extractIdFromHref(href) {
     try {
       const u = new URL(href, location.origin);
@@ -66,6 +137,7 @@
     } catch {}
     return null;
   }
+  
   function closestCard(el) {
     return el.closest?.('[data-qa="serp-item"]')
       || el.closest?.('[data-qa="vacancy-serp__vacancy"]')
@@ -73,6 +145,7 @@
       || el.closest?.('[data-qa*="vacancy-serp"]')
       || el.closest?.('article, li, div');
   }
+  
   function getCardId(card) {
     if (!card) return null;
     if (card.__hhId) return card.__hhId;
@@ -90,6 +163,7 @@
     }
     return null;
   }
+  
   // Рекламные ссылки → канон
   function canonicalizeAdsLinkOnce(a, card) {
     if (a.__hhCanonDone) return;
@@ -102,20 +176,23 @@
     }
     a.__hhCanonDone = true;
   }
+  
   const key = id => `hh-visited:${id}`;
   const markVisitedId = id => id && localStorage.setItem(key(id), '1');
   const isVisited = id => !!id && localStorage.getItem(key(id)) === '1';
+  
   (function markCurrentPage() {
     const id = extractIdFromHref(location.href);
     if (id) markVisitedId(id);
   })();
+  
   function paintTitleStrong(card) {
     if (!card) return;
     const nodes = card.querySelectorAll('[data-qa="serp-item__title"], [data-qa="serp-item__title-text"]');
     if (!nodes.length) return;
     const paint = () => {
       nodes.forEach(n => {
-        n.style.setProperty('color', HIGHLIGHT_COLOR, 'important');
+        n.style.setProperty('color', settings.highlightColor, 'important');
         n.style.setProperty('text-decoration', 'underline', 'important');
       });
     };
@@ -123,7 +200,10 @@
     requestAnimationFrame(paint);  
     setTimeout(paint, 50);         
   }
+  
   function markCardAndLink(card, a) {
+    if (!settings.extensionEnabled) return;
+    
     if (card && !PROCESSED_CARDS.has(card)) {
       card.classList.add('hh-visited-card');
       PROCESSED_CARDS.add(card);
@@ -132,13 +212,17 @@
     // ключевое: красим заголовок внутри карточки
     paintTitleStrong(card);
   }
+  
   function applyHighlightToLink(a) {
+    if (!settings.extensionEnabled) return;
+    
     const card = closestCard(a);
     let id = card ? getCardId(card) : null;
     if (!id) id = extractIdFromHref(a.href);
     if (!id || !isVisited(id)) return;
     markCardAndLink(card, a);
   }
+  
   function wireLink(a) {
     if (PROCESSED_LINKS.has(a)) return;
     PROCESSED_LINKS.add(a);
@@ -155,6 +239,7 @@
     a.addEventListener('click',     markNow, { capture: true });
     applyHighlightToLink(a);
   }
+  
   function processNode(node) {
     if (node.nodeType !== 1) return;
     if (node.matches?.(LINK_SELECTORS.join(','))) {
@@ -163,6 +248,7 @@
     }
     node.querySelectorAll?.(LINK_SELECTORS.join(',')).forEach(wireLink);
   }
+  
   // Старт
   document.querySelectorAll(LINK_SELECTORS.join(',')).forEach(wireLink);
   let queued = false;
@@ -181,6 +267,7 @@
       });
     });
   };
+  
   const mo = new MutationObserver(muts => {
     const targets = [];
     for (const m of muts) {
@@ -196,12 +283,14 @@
     }
     if (targets.length) queueProcess(targets);
   });
+  
   mo.observe(document.body, {
     childList: true,
     subtree: true,
     attributes: true,
     attributeFilter: ['class', 'style']
   });
+  
   window.addEventListener('pageshow', () => {
     document.querySelectorAll(LINK_SELECTORS.join(',')).forEach(applyHighlightToLink);
   });
