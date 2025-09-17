@@ -6,9 +6,9 @@
   "permissions": ["storage"],
   "host_permissions": ["https://*.hh.ru/*"],
   "icons": {
-    "16": "icon_styled_16.png",
-    "48": "icon_styled_48.png",
-    "128": "icon_styled_128.png"
+    "16": "icons/icon_styled_16.png",
+    "48": "icons/icon_styled_48.png",
+    "128": "icons/icon_styled_128.png"
   },
   "author": "Sergey (apofeouz)",
   "homepage_url": "https://github.com/apofeouz/hh-visited-highlighter",
